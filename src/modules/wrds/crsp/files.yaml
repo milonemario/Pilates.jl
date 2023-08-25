@@ -1,0 +1,234 @@
+##################
+# Files for CRSP #
+##################
+
+# Compustat-CRSP link table
+linktable:
+  schema: crsp_a_ccm
+  table: ccmxpf_lnkhist
+  index:
+    - gvkey
+  fields:
+    - gvkey
+    - linkprim
+    - liid
+    - linktype
+    - lpermno
+    - lpermco
+    - linkdt
+    - linkenddt
+
+# Monthly Stock File
+msf:
+  schema: crsp_a_stock
+  table: msf
+  index:
+    - permno
+    - date
+  fields:
+    - cusip
+    - permno
+    - permco
+    - issuno
+    - hexcd
+    - hsiccd
+    - date
+    - bidlo
+    - askhi
+    - prc
+    - vol
+    - ret
+    - bid
+    - ask
+    - shrout
+    - cfacpr
+    - cfacshr
+    - altprc
+    - spread
+    - altprcdt
+    - retx
+
+# Stock-Market Indexes Monthly
+msi:
+  schema: crsp_a_stock
+  table: msi
+  index:
+    - date
+  fields:
+    - date
+    - vwretd
+    - vwretx
+    - ewretd
+    - ewretx
+    - sprtrn
+    - spindx
+    - totval
+    - totcnt
+    - usdval
+    - usdcnt
+
+# Monthly Stock Events
+mse:
+  schema: crsp_a_stock
+  table: mse
+  index:
+    - permno
+  fields:
+    - event
+    - date
+    - hsicmg
+    - hsicig
+    - comnam
+    - cusip
+    - dclrdt
+    - dlamt
+    - dlpdt
+    - dlstcd
+    - hsiccd
+    - issuno
+    - ncusip
+    - nextdt
+    - paydt
+    - rcrddt
+    - shrcls
+    - shrflg
+    - ticker
+    - permno
+    - nameendt
+    - shrcd
+    - exchcd
+    - siccd
+    - tsymbol
+    - naics
+    - primexch
+    - trdstat
+    - secstat
+    - permco
+    - compno
+    - hexcd
+    - distcd
+    - divamt
+    - facpr
+    - facshr
+    - acperm
+    - accomp
+    - nwperm
+    - nwcomp
+    - dlretx
+    - dlprc
+    - dlret
+    - shrout
+    - shrenddt
+    - trtscd
+    - trtsendt
+    - nmsind
+    - mmcnt
+    - nsdinx
+
+# Monthly Stock Events Names
+msenames:
+  schema: crsp_a_stock
+  table: msenames
+  index:
+    - permno
+  fields:
+    - permno
+    - namedt
+    - nameendt
+    - shrcd
+    - exchcd
+    - siccd
+    - ncusip
+    - ticker
+    - comnam
+    - shrcls
+    - tsymbol
+    - naics
+    - primexch
+    - trdstat
+    - secstat
+    - permco
+    - compno
+    - issuno
+    - hexcd
+    - hsiccd
+    - cusip
+
+# Daily Stock File
+dsf:
+  schema: crsp_a_stock
+  table: dsf
+  index:
+    - permno
+    - date
+  field:
+    - cusip
+    - permno
+    - permco
+    - issuno
+    - hexcd
+    - hsiccd
+    - date
+    - bidlo
+    - askhi
+    - prc
+    - vol
+    - ret
+    - bid
+    - ask
+    - shrout
+    - cfacpr
+    - cfacshr
+    - openprc
+    - numtrd
+    - retx
+
+# Stock-Market Indexes Daily
+dsi:
+  schema: crsp_a_stock
+  table: dsi
+  index:
+    - date
+
+# Daily Stock Events
+dse:
+  schema: crsp_a_stock
+  table: dse
+  index:
+    - date
+  fields:
+    - date
+    - vwretd
+    - vwretx
+    - ewretd
+    - ewretx
+    - sprtrn
+    - spindx
+    - totval
+    - totcnt
+    - usdval
+    - usdcnt
+
+# Stock Names
+stocknames:
+  schema: crsp_a_stock
+  table: stocknames
+  index:
+    - permno
+  fields:
+    - permno
+    - namedt
+    - nameenddt
+    - shrcd
+    - exchcd
+    - siccd
+    - ncusip
+    - ticker
+    - comnam
+    - shrcls
+    - permco
+    - hexcd
+    - cusip
+    - st_date
+    - end_date
+    - namedum

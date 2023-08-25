@@ -1,0 +1,133 @@
+##############################
+# Column types for CRSP data #
+##############################
+
+# Pandas Nullable Int32 type
+Int32:
+  # Linktable
+  - gvkey
+  - lpermno
+  - lpermco
+  # msf
+  - permno
+  - permco
+  - issuno
+  - hexcd
+  - hsiccd
+  - shrout
+  # mse
+  - hsicmg
+  - hsicig
+  - dlstcd
+  - shrflg
+  - shrcd
+  - exchcd
+  - siccd
+  - compno
+  - distcd
+  - facpr
+  - facshr
+  - acperm
+  - accomp
+  - trtscd
+  - nmsind
+  - mmcnt
+  - nsdinx
+  # dsf
+  # dsi
+  - totcnt
+  - usdcnt
+  # dse
+  - dlstcd
+  # stocknames
+
+
+string:
+  # Linktable
+  - linkprim
+  - liid
+  - linktype
+  # msf
+  - cusip
+  # mse
+  - event
+  - comnam
+  - ncusip
+  - shrcls
+  - ticker
+  - tsymbol
+  - naics
+  - primexch
+  - trdstat
+  - secstat
+  # msenames
+  - ticker
+  # dsf
+  # dsi
+  # dse
+  # stocknames
+  - namedum
+
+
+date:
+  # Linktable
+  - linkdt
+  - linkenddt
+  # msf
+  - date
+  - altprcdt
+  # mse
+  - dclrdt
+  - dlpdt
+  - nextdt
+  - paydt
+  - rcrddt
+  - nameendt
+  - shrenddt
+  - trtsenddt
+  # msename
+  - namedt
+  # dsf
+  # dsi
+  # dse
+  # stocknames
+  - st_date
+  - end_date
+
+
+float32:
+  # msf
+  - bidlo
+  - askhi
+  - prc
+  - vol
+  - ret
+  - bid
+  - ask
+  - altprc
+  - spread
+  - retx
+  # mse
+  - dlamt
+  - divamt
+  - nwperm
+  - nwcomp
+  - dlretx
+  - dlpcr
+  - dlret
+  - cfacpr
+  - cfacshr
+  # dsf
+  - openprc
+  - numtrd
+  # dsi
+  - vwretd
+  - vwretx
+  - ewretd
+  - ewretx
+  - sprtrn
+  - spindx
+  - totval
+  - usdval
+  # dse
+  # stocknames
