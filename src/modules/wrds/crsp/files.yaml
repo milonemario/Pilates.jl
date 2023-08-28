@@ -6,8 +6,6 @@
 linktable:
   schema: crsp_a_ccm
   table: ccmxpf_lnkhist
-  index:
-    - gvkey
   fields:
     - gvkey
     - linkprim
@@ -161,7 +159,7 @@ dsf:
   index:
     - permno
     - date
-  field:
+  fields:
     - cusip
     - permno
     - permco
@@ -182,6 +180,8 @@ dsf:
     - openprc
     - numtrd
     - retx
+#  groups:
+#    - permno
 
 # Stock-Market Indexes Daily
 dsi:

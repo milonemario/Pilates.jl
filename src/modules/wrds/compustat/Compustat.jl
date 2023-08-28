@@ -5,9 +5,6 @@ using YAML
 
 using ..Pilates: WRDS
 
-#include("../WRDS.jl")
-# using .WRDS: WrdsUser, WrdsTable
-
 function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; frequency="Annual")
     tables_yml = YAML.load_file("$(@__DIR__)/files.yaml")
     tables_names = [t for t in keys(tables_yml) if t ∉ ["funda", "fundq"]]

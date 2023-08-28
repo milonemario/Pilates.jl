@@ -41,8 +41,7 @@ Int32:
   - dlstcd
   # stocknames
 
-
-string:
+String:
   # Linktable
   - linkprim
   - liid
@@ -68,8 +67,7 @@ string:
   # stocknames
   - namedum
 
-
-date:
+Date:
   # Linktable
   - linkdt
   - linkenddt
@@ -94,8 +92,7 @@ date:
   - st_date
   - end_date
 
-
-float32:
+Float32:
   # msf
   - bidlo
   - askhi
