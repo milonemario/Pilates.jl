@@ -1,22 +1,7 @@
 # Pilates.jl
 
-[![Build Status](https://github.com/milonemario/Pilates.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/milonemario/Pilates.jl/actions/workflows/CI.yml?query=branch%3Amain)
-
 **P**ilates.jl **I**s a **L**ibrary of **A**ccounting **T**ools for **E**conomist**S**.
 Its purpose is to help data creation for Accounting, Finance, and Economic Research.
-
-## Functionalities
-
-- WRDS datasets
-    - Compustat
-        - [x] Fundamentals Annual (US)
-        - [x] Fundamentals Quarterly (US)
-    - CRSP
-        - [x] Compounded returns from daily stock prices
-        - [x] Volatility of returns from daily stock prices
-- Fred
-    - Any FRED series
-
 
 ## Quickstart
 
