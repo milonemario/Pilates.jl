@@ -6,15 +6,15 @@
 Its purpose is to help data creation for Accounting, Finance, and Economic Research.
 
 ## Functionalities
-Markup: - WRDS datasets
-        - Compustat
-            - [x] Fundamentals Annual (US)
-            - [x] Fundamentals Quarterly (US)
-        - CRSP
-            - [x] Compounded returns from daily stock prices
-            - [x] Volatility of returns from daily stock prices
-    - Fred
-        - Any FRED series
+- WRDS datasets
+    - Compustat
+        - [x] Fundamentals Annual (US)
+        - [x] Fundamentals Quarterly (US)
+    - CRSP
+        - [x] Compounded returns from daily stock prices
+        - [x] Volatility of returns from daily stock prices
+- Fred
+    - Any FRED series
 
 
 ## Quickstart
