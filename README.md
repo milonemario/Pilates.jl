@@ -21,7 +21,7 @@ Its purpose is to help data creation for Accounting, Finance, and Economic Resea
 
 Starts with WRDS Compustat fundamental annual data.
 
-```
+```julia
 julia> using Pilates
 
 julia> wrdsuser = Pilates.WRDS.wrdsuser("username")
@@ -43,12 +43,11 @@ julia> Pilates.Compustat.add_fields!(data, wrdsuser, [:lt], frequency="Annual")
       1 │   1000  1961-12-31  INDL    STD       C       D         1961  missing      missing  missing     
    ⋮    │   ⋮         ⋮         ⋮        ⋮        ⋮       ⋮       ⋮          ⋮          ⋮          ⋮
  880344 │ 353945  2022-12-31  INDL    SUMM_STD  C       D         2022      981.551  1948862  missing     
-
 ```
 
 Add compounded daily returns starting one year before until three months before the field datadate.
 
-```
+```julia
 julia> Pilates.Crsp.add_permno!(wrdsuser, data, :gvkey)
 880344×11 DataFrame
     Row │ gvkey   datadate    indfmt  datafmt   consol  popsrc  fyear   at           cik      lt           permno  
@@ -68,12 +67,11 @@ julia> data
       1 │   1000  1961-12-31  INDL    STD       C       D         1961  missing      missing  missing      missing  missing        
    ⋮    │   ⋮         ⋮         ⋮        ⋮        ⋮       ⋮       ⋮          ⋮          ⋮          ⋮          ⋮           ⋮
  880344 │ 353945  2022-12-31  INDL    SUMM_STD  C       D         2022      981.551  1948862  missing      missing  missing        
-
 ```
 
 Add volatility daily returns starting one year before until three months before the field datadate.
 
-```
+```julia
 julia> Pilates.Crsp.volatility_return!(wrdsuser, data, :datadate, :vol, Year(-1), Month(-3))
 
 julia> data
@@ -84,13 +82,11 @@ julia> data
       1 │   1000  1961-12-31  INDL    STD       C       D         1961  missing      missing  missing      missing   missing  missing         
    ⋮    │   ⋮         ⋮         ⋮        ⋮        ⋮       ⋮       ⋮          ⋮          ⋮          ⋮          ⋮        ⋮             ⋮
  880344 │ 353945  2022-12-31  INDL    SUMM_STD  C       D         2022      981.551  1948862  missing      missing   missing  missing         
-
 ```
 
 Add Real Gross Domestic Product from FRED (series GDPC1)
 
-```
-
+```julia
 julia> data
 880344×14 DataFrame
     Row │ gvkey   datadate    indfmt  datafmt   consol  popsrc  fyear   at           cik      lt           permno   comp_ret  vol              rgdp     
@@ -99,12 +95,11 @@ julia> data
       1 │   1000  1961-12-31  INDL    STD       C       D         1961  missing      missing  missing      missing   missing  missing           3440.92
    ⋮    │   ⋮         ⋮         ⋮        ⋮        ⋮       ⋮       ⋮          ⋮          ⋮          ⋮          ⋮        ⋮             ⋮            ⋮
  880344 │ 353945  2022-12-31  INDL    SUMM_STD  C       D         2022      981.551  1948862  missing      missing   missing  missing          20182.5
-
 ```
 
 Add Real Personal Consumption Expenditure and Real Government Consumption Expenditures and Gross Investment from FRED (series PCE and GCEC1)
 
-```
+```julia
 julia> Pilates.Fred.add_series!(data, ["PCE" => :pce, "GCEC1" => :gce], :datadate)
 
 julia> data
@@ -115,5 +110,4 @@ julia> data
       1 │   1000  1961-12-31  INDL    STD       C       D         1961  missing      missing  missing      missing   missing  missing           3440.92     352.4   1176.74
    ⋮    │   ⋮         ⋮         ⋮        ⋮        ⋮       ⋮       ⋮          ⋮          ⋮          ⋮          ⋮        ⋮             ⋮            ⋮         ⋮         ⋮
  880344 │ 353945  2022-12-31  INDL    SUMM_STD  C       D         2022      981.551  1948862  missing      missing   missing  missing          20182.5    17736.5   3442.47
-
 ```
