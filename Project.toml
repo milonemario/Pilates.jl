@@ -15,7 +15,15 @@ Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
 [compat]
-julia = "1"
+julia = "1.9"
+DataFrames = "1.6"
+FredData = "0.6"
+LibPQ = "1.17"
+Parquet2 = "0.2"
+ProgressBars = "1.5"
+Statistics = "1.9"
+Tables = "1.10"
+YAML = "0.4"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
