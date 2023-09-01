@@ -42,6 +42,11 @@ funda:
     - datafmt
     - consol
     - popsrc
+  format_index:
+    - indfmt
+    - datafmt
+    - consol
+    - popsrc 
   fields:
     - gvkey
     - datadate
@@ -998,11 +1003,19 @@ fundq:
   schema: comp_na_daily_all
   table: fundq
   index:
-    - datadate
     - gvkey
+    - datadate
+    - fyearq
+    - fyr
     - indfmt
     - datafmt
     - consol
+    - popsrc
+  format_index:
+    - indfmt
+    - datafmt
+    - consol
+    - popsrc 
   fields:
     - gvkey
     - datadate

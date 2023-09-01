@@ -30,6 +30,7 @@ struct WrdsTable
     schema::String
     table::String
     index::Vector{Symbol}
+    format_index::Union{Nothing, Vector{Symbol}}
     fields::Vector{Symbol}
     types::Dict{Symbol, DataType}
     groups::Union{Nothing, Vector{Symbol}}
@@ -43,6 +44,8 @@ function WrdsTable(wrdsuser::WrdsUser, vendor::String, tablename::String)
     table = table_yml["table"]
     index = Symbol[]
     haskey(table_yml, "index") ? index = Symbol.(table_yml["index"]) : nothing
+    format_index = Symbol[]
+    haskey(table_yml, "format_index") ? format_index = Symbol.(table_yml["format_index"]) : nothing
     fields = Symbol.(table_yml["fields"])
     groups = nothing
     haskey(table_yml, "groups") ? groups = Symbol.(table_yml["groups"]) : nothing
@@ -69,7 +72,7 @@ function WrdsTable(wrdsuser::WrdsUser, vendor::String, tablename::String)
         end
     end
 
-    WrdsTable(wrdsuser, vendor, schema, table, index, fields, types, groups)
+    WrdsTable(wrdsuser, vendor, schema, table, index, format_index, fields, types, groups)
 end
 
 function pgpass(wrdsuser::WrdsUser)
@@ -146,9 +149,10 @@ end
 
 function download_fields(table::WrdsTable, fields::Vector{Symbol})
     isnothing(table.wrdsuser.conn) || status(table.wrdsuser.conn) == "CONNECTION_BAD" ? connect(table.wrdsuser) : nothing
-    println("Download fields $(join(String.(fields), ", ")) from table $(table.schema).$(table.table)")
+    fields_todownload = [c for c in fields if c ∉ table.index]
+    println("Download fields $(join(String.(fields_todownload), ", ")) from table $(table.schema).$(table.table)")
     if isnothing(table.groups)
-        query = "SELECT $(join(String.([table.index..., fields...]), ", ")) FROM $(table.schema).$(table.table)"
+        query = "SELECT $(join(String.([table.index..., fields_todownload...]), ", ")) FROM $(table.schema).$(table.table)"
         result = execute(table.wrdsuser.conn, query)
         data = DataFrame(result)
         # Correct types and check index uniqueness
@@ -215,7 +219,7 @@ function get_fields(table::WrdsTable, fields::Vector{Symbol}; kwargs...)
 
     if isnothing(table.groups)
         ds = Dataset(file(table))
-        cols = [table.index..., fields...]
+        cols = [table.index..., [f for f in fields if f ∉ table.index]...]
         ds |> select(cols...) |> DataFrame
     else
         error("Opening partitioned dataset is not yet supported.")

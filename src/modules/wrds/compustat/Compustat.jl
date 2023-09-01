@@ -1,5 +1,6 @@
 module Compustat
 
+using Dates
 using DataFrames
 using YAML
 
@@ -45,13 +46,60 @@ function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; frequency="
     data
 end
 
-function add_fields!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; frequency="Annual")
-    missing_fields = [f for f in fields if f ∉ Symbol.(names(data))]
-    if length(missing_fields) > 0
-        df = get_fields(wrdsuser, missing_fields; frequency=frequency)
-        fields_on = Symbol.([f for f ∈ names(data) if f ∈ names(df)])
-        leftjoin!(data, df, on=fields_on)
+function get_lag(data::DataFrame, key::Vector{Symbol}, dlag::Dates.AbstractTime, lagdate::Symbol)
+end
+
+function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Pair{Symbol, Symbol}};
+    frequency="Annual", lag=0)
+    data = get_fields(wrdsuser, first.(fields); frequency=frequency) 
+    if lag != 0
+        if frequency == "Annual"
+            table = WRDS.WrdsTable(wrdsuser, "compustat", "funda")
+            dlag = Year(lag)
+            add_fields!(data, wrdsuser, [:fyear])
+            dropmissing!(data, :fyear)
+            data._date_ = Date.(data.fyear)
+            select!(data, Not(:fyear))
+        elseif frequency == "Quarterly"
+            error("Get lagged field for quarterly Compustat data yet to be implemented.")
+            # table = WRDS.WrdsTable(wrdsuser, "compustat", "fundq")
+            # dlag = Quarter(lag)
+        end
+        key = [:gvkey, table.format_index...] 
+        # If duplicate filings for a given lagby date, keep the one with the latest datadate
+        dfg = groupby(data, [key..., :_date_])
+        transform!(dfg, :datadate => maximum => :datadate_latest)
+        filter!([:datadate, :datadate_latest] => (x, y) -> x .== y, data)
+        select!(data, Not(:datadate_latest))
+        # Check that there are no duplicates
+        if length(findall(nonunique(data[!, [key..., :_date_]]))) > 0
+            error("Index for table $(table.table), schema $(table.schema) and vendor $(table.vendor) is non-unique.")
+        end
+        # Create lagged fields
+        data._date_lag_ = data._date_ .+ dlag
+        data_lag = rename(data[!, [key..., first.(fields)..., :_date_lag_]], fields)
+        leftjoin!(data, data_lag, on=[key..., :_date_ => :_date_lag_] )
+        select!(data, Not([:_date_, :_date_lag_, first.(fields)...]))
+    else
+        rename!(data, fields)
     end
+    data
+end
+
+function add_fields!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Union{Vector{Symbol}, Vector{Pair{Symbol, Symbol}}}; kwargs...)
+    # Check fields do not already exist
+    fields_names = fields
+    if typeof(fields) == Vector{Pair{Symbol, Symbol}}
+        fields_names = last.(fields)
+    end
+    existing_fields = intersect(Symbol.(names(data)), fields_names)
+    if length(existing_fields) > 0
+        error("Fields $existing_fields already exist in the data.")
+    end
+    # Add the fields to the data
+    df = get_fields(wrdsuser, fields; kwargs...)
+    fields_on = Symbol.([f for f ∈ names(data) if f ∈ names(df)])
+    leftjoin!(data, df, on=fields_on)
 end
 
 end # module
