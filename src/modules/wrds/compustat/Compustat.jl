@@ -6,7 +6,11 @@ using YAML
 
 using ..Pilates: WRDS
 
-function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; frequency="Annual")
+
+function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Pair{Symbol, Symbol}};
+    frequency="Annual", lag=0)
+
+    # Get the original fields
     tables_yml = YAML.load_file("$(@__DIR__)/files.yaml")
     tables_names = [t for t in keys(tables_yml) if t ∉ ["funda", "fundq"]]
     if frequency == "Annual"
@@ -23,7 +27,7 @@ function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; frequency="
     fields_found = Symbol[]
     fields_for_table = Dict{String, Vector{Symbol}}()
     for t in tables_all
-        fields_t = [f for f in t.fields if f in fields && f ∉ fields_found]
+        fields_t = [f for f in t.fields if f in first.(fields) && f ∉ fields_found]
         append!(fields_found, fields_t)
         if length(fields_t) > 0
             push!(tables, t)
@@ -43,15 +47,8 @@ function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; frequency="
             data = leftjoin(data, df, on=fields_on)
         end
     end
-    data
-end
 
-function get_lag(data::DataFrame, key::Vector{Symbol}, dlag::Dates.AbstractTime, lagdate::Symbol)
-end
-
-function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Pair{Symbol, Symbol}};
-    frequency="Annual", lag=0)
-    data = get_fields(wrdsuser, first.(fields); frequency=frequency) 
+    # Get the lags if requested
     if lag != 0
         if frequency == "Annual"
             table = WRDS.WrdsTable(wrdsuser, "compustat", "funda")
@@ -77,22 +74,26 @@ function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Pair{Symbol, Symbol}
         end
         # Create lagged fields
         data._date_lag_ = data._date_ .+ dlag
-        data_lag = rename(data[!, [key..., first.(fields)..., :_date_lag_]], fields)
+        names_lag = [first(f) => Symbol("__$(String(first(f)))__") for f in fields]
+        data_lag = rename(data[!, [key..., first.(fields)..., :_date_lag_]], names_lag)
         leftjoin!(data, data_lag, on=[key..., :_date_ => :_date_lag_] )
         select!(data, Not([:_date_, :_date_lag_, first.(fields)...]))
-    else
-        rename!(data, fields)
+        rename!(data, [last(f) => first(f) for f in names_lag])
     end
+
+    # Rename variables
+    rename!(data, fields)
     data
 end
 
-function add_fields!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Union{Vector{Symbol}, Vector{Pair{Symbol, Symbol}}}; kwargs...)
+function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; kwargs...) 
+    fields = [f => f for f in fields]
+    get_fields(wrdsuser, fields; kwargs...)
+end
+
+function add_fields!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Pair{Symbol, Symbol}}; kwargs...)
     # Check fields do not already exist
-    fields_names = fields
-    if typeof(fields) == Vector{Pair{Symbol, Symbol}}
-        fields_names = last.(fields)
-    end
-    existing_fields = intersect(Symbol.(names(data)), fields_names)
+    existing_fields = intersect(Symbol.(names(data)), last.(fields))
     if length(existing_fields) > 0
         error("Fields $existing_fields already exist in the data.")
     end
@@ -101,5 +102,58 @@ function add_fields!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Union{Vec
     fields_on = Symbol.([f for f ∈ names(data) if f ∈ names(df)])
     leftjoin!(data, df, on=fields_on)
 end
+
+function add_fields!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; kwargs...)
+    fields = [f => f for f in fields]
+    add_fields!(data, wrdsuser, fields; kwargs...)
+end
+
+function add_field!(data::DataFrame, wrdsuser::WRDS.WrdsUser, field::Pair{<:Function, Symbol}; frequency="Annual")
+    if frequency == "Annual"
+        table = WRDS.WrdsTable(wrdsuser, "compustat", "funda")
+    elseif frequency == "Quarterly"
+        table = WRDS.WrdsTable(wrdsuser, "compustat", "fundq")
+    end
+    fn = first(field)
+    df = fn()
+    if String(nameof(fn)) ∉ names(df)
+        error("The function $fn should return a dataframe with a column $(nameof(fn)) corresponding to the new variable.")
+    end
+    select!(df, [table.index..., nameof(fn)] )
+    rename!(df, nameof(fn) => last.(field))
+    fields_on = Symbol.([f for f ∈ names(data) if f ∈ names(df)])
+    leftjoin!(data, df, on=fields_on)
+end
+
+function add_field!(data::DataFrame, wrdsuser::WRDS.WrdsUser, field::Function; kwargs...)
+    field = field => nameof(field)
+    add_field!(data, wrdsuser, field; kwargs...)
+end
+
+function add_fields!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Pair{<:Function, Symbol}}; kwargs...)
+    for field in fields
+        add_field!(data, wrdsuser, field; kwargs...)
+    end
+end
+
+function add_fields!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{<:Function}; kwargs...)
+    for field in fields
+        add_field!(data, wrdsuser, field; kwargs...)
+    end
+end
+
+function add_fields!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Any}; kwargs...)
+    fields_symbols = fields[typeof.(fields) .== Symbol]
+    fields_symbols_pairs = fields[typeof.(fields) .== Pair{Symbol, Symbol}]
+
+    fields_1 = [[f => f for f in fields_symbols]..., [first(f) => last(f) for f ∈ fields_symbols_pairs]...]
+    add_fields!(data, wrdsuser, fields_1; kwargs)
+
+    fields_others = fields[.~(typeof.(fields) .== Symbol) .&& .~(typeof.(fields) .== Pair{Symbol, Symbol})]
+    for field in fields_others
+        add_field!(data, wrdsuser, field; kwargs...)
+    end
+end
+
 
 end # module
