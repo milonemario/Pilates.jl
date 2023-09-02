@@ -59,6 +59,16 @@ function compute_field(data::DataFrame, field::Field, index::Vector{Symbol})
     field.fn(df)
 end
 
+function compute_fields!(data::DataFrame, fields::Vector{Field}, index::Vector{Symbol})
+    for field in fields
+        data[!, field.name] .= compute_field(data, field, index)
+    end
+end
+
+function compute_fields!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Field}; frequency="Annual")
+    compute_fields!(data, fields, table_index(wrdsuser, frequency))
+end
+
 function get_raw_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; frequency="Annual")
     # Get the original fields
     tables_yml = YAML.load_file("$(@__DIR__)/files.yaml")
@@ -114,7 +124,7 @@ function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Field}; frequency="A
     data = get_raw_fields(wrdsuser, fields_raw; frequency=frequency)
 
     # Transform and rename
-    index = table_index(frequency)
+    index = table_index(wrdsuser, frequency)
     for field in fields
         # Create the dataframe required by the 
         data[!, field.name] .= compute_field(data, field, index)
@@ -137,16 +147,19 @@ function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector; kwargs...)
     get_fields(wrdsuser, fields; kwargs...)
 end
 
-function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; frequency="Annual", lag=0)
+function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Field}; frequency="Annual", lag=0)
+    fields_names = [f.name for f in fields]
+
     if frequency == "Annual"
         table = WRDS.WrdsTable(wrdsuser, "compustat", "funda")
         dlag = Year(lag)
         if "fyear" ∉ names(data)
             error("Field 'fyear' is required to compute lagged variables.")
         end
-        df = dropmissing(data[!, [table.index..., :fyear, fields...]], :fyear)
+        df = dropmissing(data[!, [table.index..., :fyear, raw_fields(fields)...]], :fyear)
+        compute_fields!(df, wrdsuser, fields; frequency=frequency)
         df._date_ = Date.(df.fyear)
-        select!(df, Not(:fyear))
+        select!(df, [table.index..., :_date_, fields_names...])
     elseif frequency == "Quarterly"
         error("Get lagged field for quarterly Compustat data yet to be implemented.")
         # table = WRDS.WrdsTable(wrdsuser, "compustat", "fundq")
@@ -164,13 +177,24 @@ function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; 
     end
     # Create lagged fields
     df._date_lag_ = df._date_ .+ dlag
-    names_lag = [f => Symbol("__$(String(f))__") for f in fields]
-    dfm = rename(df[!, [key..., fields..., :_date_lag_]], names_lag)
+    names_lag = [f => Symbol("__$(String(f))__") for f in fields_names]
+    dfm = rename(df[!, [key..., fields_names..., :_date_lag_]], names_lag)
     leftjoin!(df, dfm, on=[key..., :_date_ => :_date_lag_] )
-    select!(df, Not([:_date_, :_date_lag_, fields...]))
+    select!(df, Not([:_date_, :_date_lag_, fields_names...]))
     leftjoin!(data, df, on=table.index)
-    select!(data, Not([fields...]))
     rename!(data, [last(f) => first(f) for f in names_lag])
+end
+
+function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector; kwargs...)
+    lag!(data, wrdsuser, Field.(fields); kwargs...)
+end
+
+function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, field::Field; kwargs...)
+    lag!(data, wrdsuser, [field]; kwargs...)
+end
+
+function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, field::Symbol; kwargs...)
+    lag!(data, wrdsuser, Field(field); kwargs...)
 end
 
 function add_fields!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Field}; kwargs...)
