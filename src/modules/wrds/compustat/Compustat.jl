@@ -12,14 +12,11 @@ struct Field
     name::Symbol    # Final name of field
 end
 
-Field(F::Field) = F
 Field(field::Union{Symbol, Field}, fn, name) = Field([field], fn, name)
+Field(F::Field) = F
 Field(s::Symbol) = Field(s, data -> data[!, s], s)
 Field(p::Pair{Symbol, Symbol}) = Field(first(p), data -> data[!, first(p)], last(p))
 Field(p::Pair{Field, Symbol}) = Field(first(p), data -> data[!, first(p).name], last(p))
-
-
-
 Field(p::Pair{<:Any, <:Function}) = Field(first(p), last(p), nameof(last(p)))
 Field(pf::Pair{<:Any, <:Pair{<:Function, Symbol}}) = Field(first(pf), first(last(pf)), last(last(pf)))
 
@@ -194,6 +191,10 @@ function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, field::Field; kwargs...)
 end
 
 function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, field::Symbol; kwargs...)
+    lag!(data, wrdsuser, Field(field); kwargs...)
+end
+
+function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, field::Pair{Symbol, Symbol}; kwargs...)
     lag!(data, wrdsuser, Field(field); kwargs...)
 end
 
