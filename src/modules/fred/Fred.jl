@@ -17,7 +17,7 @@ function get_series(series::String; lag::Dates.AbstractTime=Year(0))
 end
 
 function add_series!(data::DataFrame, series::Pair{String, Symbol}, coldate::Symbol; kwargs...)
-    s = get_series(series.first; kwargs)
+    s = get_series(series.first; kwargs...)
     df = s.data
     userdates = unique(data[!, coldate])
     # Extract year, quarter, month
