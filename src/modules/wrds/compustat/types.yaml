@@ -77,6 +77,10 @@ String:
   - ogmq
   - rp
   - staltq
+  # adsprate
+  - splticrm
+  - spsdrm
+  - spsticrm
 
 Date:
   # names

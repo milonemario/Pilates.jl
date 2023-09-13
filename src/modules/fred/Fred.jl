@@ -4,17 +4,20 @@ using Dates
 using DataFrames
 using FredData
 
-function get_series(series::String)
+function get_series(series::String; lag::Dates.AbstractTime=Year(0))
     # Pull one series from FRED.
     fkey = open("$(@__DIR__)/fred_api_key.txt")
     key = readline(fkey)
     close(fkey)
     f = FredData.Fred(key)
-    get_data(f, series)
+    s = get_data(f, series)
+    # Apply the lag
+    s.data.date .+= lag
+    s
 end
 
-function add_series!(data::DataFrame, series::Pair{String, Symbol}, coldate::Symbol)
-    s = get_series(series.first)
+function add_series!(data::DataFrame, series::Pair{String, Symbol}, coldate::Symbol; kwargs...)
+    s = get_series(series.first; kwargs)
     df = s.data
     userdates = unique(data[!, coldate])
     # Extract year, quarter, month
@@ -44,9 +47,9 @@ function add_series!(data::DataFrame, series::Pair{String, Symbol}, coldate::Sym
     leftjoin!(data, dfu[!, [coldate, newcol]], on=coldate)
 end
 
-function add_series!(data::DataFrame, series::Vector{Pair{String, Symbol}}, coldate::Symbol)
+function add_series!(data::DataFrame, series::Vector{Pair{String, Symbol}}, coldate::Symbol; kwargs...)
     for s in series
-        add_series!(data, s, coldate)
+        add_series!(data, s, coldate; kwargs...)
     end
 end
 
