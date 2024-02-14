@@ -103,7 +103,7 @@ function pgpass(wrdsuser::WrdsUser)
             secret_pass = Base.getpass("WRDS password for user $(wrdsuser.username)")
             print("\n")
             pass = read(secret_pass, String)
-            Base.shred!()
+            Base.shred!(secret_pass)
             entry = "$WRDS_POSTGRES_HOST:$WRDS_POSTGRES_PORT:$WRDS_POSTGRES_DB:$(wrdsuser.username):$pass"
             if isfile(pgpass)
                 # Change permission to write
