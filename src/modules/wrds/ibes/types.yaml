@@ -1,0 +1,101 @@
+##############################
+# Column types for IBES data #
+##############################
+
+Int32:
+  # linktable
+  - permno
+  - score
+  # id
+  - dilfac
+  - usfirm
+  # det_epsus
+  - estimator
+  - analys
+  - acttims
+  - revtims
+  - anntims
+  - acctims_act
+  # act_epsus
+  # adj
+  # det_guidance
+  - range_desc
+  - diff_code
+  - act_std
+  - guidance_code
+  - mod_time
+  - prd_yr
+  - prd_mon
+  - eefymo
+  # ptgdet
+  - horizon
+  - amaskcd
+
+
+string:
+  # linktable
+  - ncusip
+  # id
+  - ticker
+  - cusip
+  - oftic
+  - cname
+  - pdi
+  - ccopcf
+  - mscip     # Not sure if not int
+  - uai       # Not sure if not int
+  # det_epsus
+  - currfl
+  - pdf
+  - fpi
+  - measure
+  - curr
+  - curr_act
+  - report_curr
+  # act_epsus
+  - pdicity
+  # adj
+  # det_guidance
+  - units
+  - action
+  # ptgdet
+  - estimid
+  - alysnam
+  - estcur
+
+
+date:
+  # linktable
+  - sdate
+  - edate
+  # id
+  - sdates
+  # det_epsus
+  - actdats
+  - fpedats
+  - revdats
+  - anndats
+  - actdats_act
+  - anndats_act
+  # act_epsus
+  - pends
+  # adj
+  - spdates
+  # det_guidance
+  - mod_date
+  # ptgdet
+
+
+float32:
+  # id
+  # det_epsus
+  - value
+  - actual
+  # act_epsus
+  # adj
+  - adj
+  # det_guidance
+  - val_1
+  - val_2
+  - mean_at_date
+  # ptgdet

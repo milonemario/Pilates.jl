@@ -34,16 +34,19 @@ end
 
 raw_fields(fields::Vector{Field}) = unique(reduce(vcat, raw_fields.(fields)))
 
-function table_index(wrdsuser::WRDS.WrdsUser, frequency::String)
+format_index = [:indfmt, :datafmt, :consol, :popsrc]
+
+function table_index(frequency::String)
     if frequency == "Annual"
-        table = WRDS.WrdsTable(wrdsuser, "compustat", "funda")
+        index = [:gvkey, :datadate]
     elseif frequency == "Quarterly"
-        table = WRDS.WrdsTable(wrdsuser, "compustat", "fundq")
+        index = [:gvkey, :datadate, :fyearq, :fyr]
     else
         error("Frequency $frequency not supported. Should be 'Annual' or 'Quarterly'.")
     end
-    table.index
+    [index..., format_index...]
 end
+
 
 function compute_field(data::DataFrame, field::Field, index::Vector{Symbol})
     # Get all raw fields
@@ -63,13 +66,15 @@ function compute_fields!(data::DataFrame, fields::Vector{Field}, index::Vector{S
 end
 
 function compute_fields!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Field}; frequency="Annual")
-    compute_fields!(data, fields, table_index(wrdsuser, frequency))
+    compute_fields!(data, fields, table_index(frequency))
 end
 
 function get_raw_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; frequency="Annual")
     # Get the original fields
-    tables_yml = YAML.load_file("$(@__DIR__)/files.yaml")
-    tables_names = [t for t in keys(tables_yml) if t ∉ ["funda", "fundq"]]
+    # tables_yml = YAML.load_file("$(@__DIR__)/files.yaml")
+    # tables_names = [t for t in keys(tables_yml) if t ∉ ["funda", "fundq"]]
+    tables_names = ["names", "adsprate"]
+    tables_index = [[:gvkey], [:gvkey, :datadate]]
     if frequency == "Annual"
         push!(tables_names, "funda")
     elseif frequency == "Quarterly"
@@ -77,8 +82,9 @@ function get_raw_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; frequen
     else
         error("Frequency $frequency not supported. Should be 'Annual' or 'Quarterly'.")
     end
+    push!(tables_index, table_index(frequency))
 
-    tables_all = WRDS.WrdsTable.([wrdsuser], ["compustat"], tables_names)
+    tables_all = WRDS.WrdsTable.([wrdsuser], ["comp_na_annual_all"], tables_names, tables_index)
     tables = WRDS.WrdsTable[]
     # Keep the tables that have data and avoid duplicated fields
     fields_found = Symbol[]
@@ -121,7 +127,7 @@ function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Field}; frequency="A
     data = get_raw_fields(wrdsuser, fields_raw; frequency=frequency)
 
     # Transform and rename
-    index = table_index(wrdsuser, frequency)
+    index = table_index(frequency)
     for field in fields
         # Create the dataframe required by the 
         data[!, field.name] .= compute_field(data, field, index)
@@ -148,7 +154,7 @@ function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Field}; f
     fields_names = [f.name for f in fields]
 
     if frequency == "Annual"
-        table = WRDS.WrdsTable(wrdsuser, "compustat", "funda")
+        table = WRDS.WrdsTable(wrdsuser, "comp_na_annual_all", "funda", table_index(frequency))
         dlag = Year(lag)
         if "fyear" ∉ names(data)
             error("Field 'fyear' is required to compute lagged variables.")
@@ -159,10 +165,8 @@ function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Field}; f
         select!(df, [table.index..., :_date_, fields_names...])
     elseif frequency == "Quarterly"
         error("Get lagged field for quarterly Compustat data yet to be implemented.")
-        # table = WRDS.WrdsTable(wrdsuser, "compustat", "fundq")
-        # dlag = Quarter(lag)
     end
-    key = [:gvkey, table.format_index...] 
+    key = [:gvkey, format_index...] 
     # If duplicate filings for a given lagby date, keep the one with the latest datadate
     dfg = groupby(df, [key..., :_date_])
     transform!(dfg, :datadate => maximum => :datadate_latest)

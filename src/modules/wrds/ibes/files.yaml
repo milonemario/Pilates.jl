@@ -1,0 +1,61 @@
+##################
+# Files for IBES #
+##################
+
+# CRSP-IBES link table
+linktable:
+  schema: wrdsapps_link_crsp_ibes
+  table: ibcrsphist
+  fields:
+    - ticker
+    - permno
+    - ncusip
+    - sdate
+    - edate
+    - score
+
+# ID table
+id:
+  schema: tr_ibes
+  table: id
+  index:
+    - ticker
+
+# EPSUS
+det_epsus:
+  schema: tr_ibes
+  table: det_epsus
+  index:
+    - ticker
+
+act_epsus:
+  schema: tr_ibes
+  table: act_epsus
+  index:
+    - ticker
+
+#statsum_epsus:
+#  schema: tr_ibes
+#  table: statsum_epsus
+#  index:
+#    - ticker
+
+# Others
+
+adj:
+  schema: tr_ibes
+  table: adj
+  index:
+    - ticker
+
+det_guidance:
+  schema: tr_ibes_guidance
+  table: det_guidance
+  index:
+    - ticker
+
+ptgdet:
+  schema: tr_ibes
+  table: ptgdet
+  index:
+    - ticker

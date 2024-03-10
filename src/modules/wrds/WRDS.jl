@@ -5,6 +5,7 @@ module WRDS
 using LibPQ
 using DataFrames
 using Parquet2: Dataset, writefile, select, append!
+using SASLib
 using YAML
 using Dates
 using ProgressBars
@@ -26,34 +27,95 @@ WrdsUser(username::String) = WrdsUser(username, nothing)
 
 struct WrdsTable
     wrdsuser::WrdsUser
-    vendor::String
     schema::String
     table::String
     index::Vector{Symbol}
-    format_index::Union{Nothing, Vector{Symbol}}
     fields::Vector{Symbol}
     types::Dict{Symbol, DataType}
     groups::Union{Nothing, Vector{Symbol}}
+    where::String   # SQL WHERE clause always applied to the requests
 end
 
-function WrdsTable(wrdsuser::WrdsUser, vendor::String, tablename::String)
-    tables_yml = YAML.load_file("$(@__DIR__)/$vendor/files.yaml")
-    !haskey(tables_yml, tablename) ? error("Table $tablename not found for vendor $vendor from WRDS.") : nothing
-    table_yml = tables_yml[tablename]
+function get_table_info(wrdsuser::WrdsUser, schema::String, tablename::String, tableindex::Vector{String})
+    isnothing(wrdsuser.conn) || status(wrdsuser.conn) == "CONNECTION_BAD" ? connect(wrdsuser) : nothing
+    query = "SELECT * FROM information_schema.columns WHERE table_schema = '$(schema)' AND table_name = '$(tablename)';"
+    result = execute(wrdsuser.conn, query)
+    data = DataFrame(result)
+    # Make sure the provided index is possible
+    isacolumn(x) = in(x, data.column_name)
+    if !all(isacolumn.(tableindex))
+        error("The given index is not compatible with the table columns (one or more missing columns)")
+    end
+    # Remap types
+    types = Dict(
+        "Int32" => data[in(["integer", "smallint", "bigint", "smallserial", "serial", "bigserial"]).(data.data_type), :column_name],
+        "Float32" => data[in(["decimal", "numeric", "real", "double precision"]).(data.data_type), :column_name],
+        "Date" => data[in(["date"]).(data.data_type), :column_name],
+        "String" => data[in(["character", "char", "bpchar", "text", "character varying"]).(data.data_type), :column_name],
+    )
+    if sum([length(t) for t in values(types)]) != length(data.column_name)
+        @warn "Not all columns types could be determined."
+    end
+    # Close the connection
+    close(wrdsuser.conn)
+    # Return the information
+    Dict(
+        "schema" => schema,
+        "table" => tablename,
+        "fields" => data.column_name,
+        "index" => tableindex,
+        "types" => types
+    )
+end
+
+function update_index(wrdsuser::WrdsUser, schema::String, tablename::String, tableindex::Vector{String})
+    tn_index = tablename_index(schema, tablename) 
+    if isfile(index_file())
+        index = YAML.load_file(index_file())
+        if tn_index ∈ keys(index)
+            if index[tn_index]["index"] != tableindex
+                # Just change the tableindex in the index
+                isacolumn(x) = in(x, index[tn_index]["fields"])
+                if !all(isacolumn.(tableindex))
+                    error("The given index is not compatible with the table columns (one or more missing columns)")
+                end
+                index[tn_index]["index"] = tableindex
+                YAML.write_file(index_file(), index)
+            end
+        else
+            table_info = get_table_info(wrdsuser, schema, tablename, tableindex)
+            index[tn_index] = table_info
+            YAML.write_file(index_file(), index)
+        end
+    else
+        table_info = get_table_info(wrdsuser, schema, tablename, tableindex)
+        index = Dict()
+        index[tn_index] = table_info
+        YAML.write_file(index_file(), index)
+    end
+end
+
+function index_file()
+    "pilates_index.yaml"
+end
+
+function tablename_index(schema::String, tablename::String)
+    "$(schema).$(tablename)"
+end
+
+function WrdsTable(wrdsuser::WrdsUser, schema::String, tablename::String, tableindex::Vector;
+    format_index::Vector{String}=Vector{String}([]), groups::Vector{String}=Vector{String}([]), where="")
+    update_index(wrdsuser, schema, tablename, String.(tableindex))
+    index = YAML.load_file(index_file())
+    tn_index = tablename_index(schema, tablename)
+    table_yml = index[tn_index]
     schema = table_yml["schema"]
     table = table_yml["table"]
-    index = Symbol[]
-    haskey(table_yml, "index") ? index = Symbol.(table_yml["index"]) : nothing
-    format_index = Symbol[]
-    haskey(table_yml, "format_index") ? format_index = Symbol.(table_yml["format_index"]) : nothing
+    index = Symbol.(table_yml["index"])
     fields = Symbol.(table_yml["fields"])
-    groups = nothing
-    haskey(table_yml, "groups") ? groups = Symbol.(table_yml["groups"]) : nothing
-
-    types_file = "$(@__DIR__)/$vendor/types.yaml"
-    types_yml = YAML.load_file(types_file)
+    groups = length(groups) > 0 ? Symbol.(groups) : nothing
     types = Dict{Symbol, DataType}()
-    for (type, f) in types_yml
+    for (type, f) in table_yml["types"]
         f = Symbol.(f)
         if type == "Int32"
             t = Int32
@@ -72,7 +134,7 @@ function WrdsTable(wrdsuser::WrdsUser, vendor::String, tablename::String)
         end
     end
 
-    WrdsTable(wrdsuser, vendor, schema, table, index, format_index, fields, types, groups)
+    WrdsTable(wrdsuser, schema, table, index, fields, types, groups, where)
 end
 
 function pgpass(wrdsuser::WrdsUser)
@@ -126,26 +188,27 @@ function connect(wrdsuser::WrdsUser)
 end
 
 function file(table::WrdsTable)
-    "$(table.schema)_$(table.table).parquet"
+    # "$(table.schema)_$(table.table).parquet"
+    "$(table.schema)/$(table.table).parquet"
 end
 
 function correct_types!(data::DataFrame, table::WrdsTable)
     # Index columns should not be missing
     for i in [c for c ∈ table.index if c ∈ Symbol.(names(data))]
-        !haskey(table.types, i) ? error("Type for field $i is not defined for table $(table.table), schema $(table.schema) and vendor $(table.vendor)") : nothing
+        !haskey(table.types, i) ? error("Type for field $i is not defined for table $(table.table), schema $(table.schema).") : nothing
         data[!, i] .= convert.(table.types[i], data[!, i])
     end
     # Other columns can be missing
     fields = [f for f ∈ Symbol.(names(data)) if f ∉ table.index]
     for f in Symbol.(fields)
-        !haskey(table.types, f) ? error("Type for field $f is not defined for table $(table.table), schema $(table.schema) and vendor $(table.vendor)") : nothing
+        !haskey(table.types, f) ? error("Type for field $f is not defined for table $(table.table), schema $(table.schema).") : nothing
         data[!, f] .= convert.(Union{table.types[f], Missing}, data[!, f])
     end
 end
 
 function check_index(data::DataFrame, table::WrdsTable)
     if length(findall(nonunique(data[!, table.index]))) > 0
-        error("Index for table $(table.table), schema $(table.schema) and vendor $(table.vendor) is non-unique.")
+        error("Index for table $(table.table), schema $(table.schema) is not unique.")
     end
 end
 
@@ -154,7 +217,11 @@ function download_fields(table::WrdsTable, fields::Vector{Symbol})
     fields_todownload = [c for c in fields if c ∉ table.index]
     println("Download fields $(join(String.(fields_todownload), ", ")) from table $(table.schema).$(table.table)")
     if isnothing(table.groups)
-        query = "SELECT $(join(String.([table.index..., fields_todownload...]), ", ")) FROM $(table.schema).$(table.table)"
+        where_clause = ""
+        if table.where != ""
+            where_clause = "WHERE $(table.where)"
+        end
+        query = "SELECT $(join(String.([table.index..., fields_todownload...]), ", ")) FROM $(table.schema).$(table.table) $(where_clause)"
         result = execute(table.wrdsuser.conn, query)
         data = DataFrame(result)
         # Correct types and check index uniqueness
@@ -167,6 +234,8 @@ function download_fields(table::WrdsTable, fields::Vector{Symbol})
             leftjoin!(df, data, on=table.index)
             writefile(file(table), df)
         else
+            # Create folder for file
+            mkpath(dirname(file(table)))
             writefile(file(table), data)
         end
     else
@@ -200,6 +269,8 @@ function download_fields(table::WrdsTable, fields::Vector{Symbol})
             end
         end
     end
+    # Close the connection
+    close(wrdsuser.conn)
     nothing
 end
 
@@ -230,6 +301,34 @@ function get_fields(table::WrdsTable, fields::Vector{Symbol}; kwargs...)
         # cols = [table.index..., fields...]
         # ds |> select(cols...) |> DataFrame
     end
+end
+
+function convert(table::WrdsTable, filepath::String)
+    if isfile(filepath)
+        if splitext(filepath)[2] != ".sas7bdat"
+            @error "Only conversion of SAS (.sas7bdat) files is currently supported. You can select this file type when exporting from the WRDS web form."
+        end
+        if filesize(filepath) > 1e7 # File bigger than 100 MB
+            @warn "Trying to convert a big file in memory. Make sure enough memory is available."
+        end
+        # Read table
+        rs = readsas(filepath)
+        data = DataFrame(rs)
+        # Lower case column names (WRDS default)
+        rename!(data, Symbol.(lowercase.(names(data))))
+        # Correct types and check index uniqueness
+        correct_types!(data, table)
+        check_index(data, table)
+        # Create folder for file and save
+        mkpath(dirname(file(table)))
+        writefile(file(table), data)
+    end
+end
+
+function convert(username::String, schema::String, tablename::String, tableindex::Vector{String}, filepath::String)
+    user = WrdsUser(username)
+    table = WrdsTable(user, schema, tablename, tableindex)
+    convert(table, filepath)
 end
 
 end # module
