@@ -3891,8 +3891,7 @@ iss_incentive_lab.companyfy:
     - "mailingzip"
   table: "companyfy"
   schema: "iss_incentive_lab"
-  index:
-    - "cik"
+  index: []
 comp_na_annual_all.names:
   types:
     Float32:

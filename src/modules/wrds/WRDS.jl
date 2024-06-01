@@ -5,6 +5,7 @@ module WRDS
 using LibPQ
 using DataFrames
 using Parquet2: Dataset, writefile, select, append!
+using CSV
 using SASLib
 using YAML
 using Dates
@@ -202,7 +203,11 @@ function correct_types!(data::DataFrame, table::WrdsTable)
     fields = [f for f ∈ Symbol.(names(data)) if f ∉ table.index]
     for f in Symbol.(fields)
         !haskey(table.types, f) ? error("Type for field $f is not defined for table $(table.table), schema $(table.schema).") : nothing
-        data[!, f] .= convert.(Union{table.types[f], Missing}, data[!, f])
+        try
+            data[!, f] .= convert.(Union{table.types[f], Missing}, data[!, f])
+        catch e
+            @warn "Column $(f) could not be properly converted."
+        end
     end
 end
 
@@ -305,15 +310,20 @@ end
 
 function convert(table::WrdsTable, filepath::String)
     if isfile(filepath)
-        if splitext(filepath)[2] != ".sas7bdat"
-            @error "Only conversion of SAS (.sas7bdat) files is currently supported. You can select this file type when exporting from the WRDS web form."
-        end
         if filesize(filepath) > 1e7 # File bigger than 100 MB
             @warn "Trying to convert a big file in memory. Make sure enough memory is available."
         end
         # Read table
-        rs = readsas(filepath)
-        data = DataFrame(rs)
+        filetype = splitext(filepath)[2]
+        if filetype == ".sas7bdat"
+            rs = readsas(filepath)
+            data = DataFrame(rs)
+        elseif filetype == ".csv"
+            data = DataFrame(CSV.File(filepath))
+            # data = DataFrame(CSV.File(filepath, types=Dict(:fiscalYearEnd => Date)))
+        else
+            @error "Only conversion of SAS (.sas7bdat) and CSV (.csv) files is currently supported. You can select this file type when exporting from the WRDS web form."
+        end
         # Lower case column names (WRDS default)
         rename!(data, Symbol.(lowercase.(names(data))))
         # Correct types and check index uniqueness
