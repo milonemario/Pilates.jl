@@ -2,3 +2,4 @@
 /docs/build
 **/.DS_Store
 **/*.py
+**/pilates_index.yaml
