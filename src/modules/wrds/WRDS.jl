@@ -21,7 +21,7 @@ WRDS_POSTGRES_DB = "wrds"
 
 mutable struct WrdsUser
     username::String
-    conn::Union{Nothing, LibPQ.Connection}
+    conn::Union{Nothing,LibPQ.Connection}
 end
 
 WrdsUser(username::String) = WrdsUser(username, nothing)
@@ -32,13 +32,14 @@ struct WrdsTable
     table::String
     index::Vector{Symbol}
     fields::Vector{Symbol}
-    types::Dict{Symbol, DataType}
-    groups::Union{Nothing, Vector{Symbol}}
+    types::Dict{Symbol,DataType}
+    groups::Union{Nothing,Vector{Symbol}}
     where::String   # SQL WHERE clause always applied to the requests
 end
 
-function get_table_info(wrdsuser::WrdsUser, schema::String, tablename::String, tableindex::Vector{String})
-    isnothing(wrdsuser.conn) || status(wrdsuser.conn) == "CONNECTION_BAD" ? connect(wrdsuser) : nothing
+function get_table_info(wrdsuser::WrdsUser, schema::String, tablename::String, tableindex::Vector)
+    tableindex = String.(tableindex)
+    isnothing(wrdsuser.conn) || status(wrdsuser.conn) != LibPQ.libpq_c.CONNECTION_OK ? connect(wrdsuser) : nothing
     query = "SELECT * FROM information_schema.columns WHERE table_schema = '$(schema)' AND table_name = '$(tablename)';"
     result = execute(wrdsuser.conn, query)
     data = DataFrame(result)
@@ -69,8 +70,9 @@ function get_table_info(wrdsuser::WrdsUser, schema::String, tablename::String, t
     )
 end
 
-function update_index(wrdsuser::WrdsUser, schema::String, tablename::String, tableindex::Vector{String})
-    tn_index = tablename_index(schema, tablename) 
+function update_index(wrdsuser::WrdsUser, schema::String, tablename::String, tableindex::Vector)
+    tableindex = String.(tableindex)
+    tn_index = tablename_index(schema, tablename)
     if isfile(index_file())
         index = YAML.load_file(index_file())
         if tn_index ∈ keys(index)
@@ -106,7 +108,7 @@ end
 
 function WrdsTable(wrdsuser::WrdsUser, schema::String, tablename::String, tableindex::Vector;
     format_index::Vector{String}=Vector{String}([]), groups::Vector{String}=Vector{String}([]), where="")
-    update_index(wrdsuser, schema, tablename, String.(tableindex))
+    update_index(wrdsuser, schema, tablename, tableindex)
     index = YAML.load_file(index_file())
     tn_index = tablename_index(schema, tablename)
     table_yml = index[tn_index]
@@ -115,7 +117,7 @@ function WrdsTable(wrdsuser::WrdsUser, schema::String, tablename::String, tablei
     index = Symbol.(table_yml["index"])
     fields = Symbol.(table_yml["fields"])
     groups = length(groups) > 0 ? Symbol.(groups) : nothing
-    types = Dict{Symbol, DataType}()
+    types = Dict{Symbol,DataType}()
     for (type, f) in table_yml["types"]
         f = Symbol.(f)
         if type == "Int32"
@@ -142,11 +144,11 @@ function pgpass(wrdsuser::WrdsUser)
     pgpass = ""
     if Base.Sys.iswindows()
         if haskey(ENV, "PASSDATA")
-            pgpass = "$(ENV["PASSDATA"])/postgresql/pgpass.conf" 
+            pgpass = "$(ENV["PASSDATA"])/postgresql/pgpass.conf"
         end
     else
         if haskey(ENV, "HOME")
-            pgpass = "$(ENV["HOME"])/.pgpass" 
+            pgpass = "$(ENV["HOME"])/.pgpass"
         end
     end
 
@@ -204,7 +206,7 @@ function correct_types!(data::DataFrame, table::WrdsTable)
     for f in Symbol.(fields)
         !haskey(table.types, f) ? error("Type for field $f is not defined for table $(table.table), schema $(table.schema).") : nothing
         try
-            data[!, f] .= convert.(Union{table.types[f], Missing}, data[!, f])
+            data[!, f] .= convert.(Union{table.types[f],Missing}, data[!, f])
         catch e
             @warn "Column $(f) could not be properly converted."
         end
@@ -218,7 +220,7 @@ function check_index(data::DataFrame, table::WrdsTable)
 end
 
 function download_fields(table::WrdsTable, fields::Vector{Symbol})
-    isnothing(table.wrdsuser.conn) || status(table.wrdsuser.conn) == "CONNECTION_BAD" ? connect(table.wrdsuser) : nothing
+    isnothing(table.wrdsuser.conn) || status(table.wrdsuser.conn) != LibPQ.libpq_c.CONNECTION_OK ? connect(table.wrdsuser) : nothing
     fields_todownload = [c for c in fields if c ∉ table.index]
     println("Download fields $(join(String.(fields_todownload), ", ")) from table $(table.schema).$(table.table)")
     if isnothing(table.groups)
@@ -275,7 +277,7 @@ function download_fields(table::WrdsTable, fields::Vector{Symbol})
         end
     end
     # Close the connection
-    close(wrdsuser.conn)
+    close(table.wrdsuser.conn)
     nothing
 end
 

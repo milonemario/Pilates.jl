@@ -6,13 +6,13 @@ using DataFrames
 
 using ..Pilates: WRDS
 
-function add_permno_from_gvkey!(wrdsuser::WRDS.WrdsUser, data::DataFrame, linktypes = ["LU", "LC", "LS"])
+function add_permno_from_gvkey!(wrdsuser::WRDS.WrdsUser, data::DataFrame, linktypes=["LU", "LC", "LS"])
     # Check data integrity
     "gvkey" ∉ names(data) ? error("Column 'gvkey' not available in user data.") : nothing
     "datadate" ∉ names(data) ? error("Column 'datadate' not available in user data.") : nothing
     df = unique(data[!, [:gvkey, :datadate]])
     # Open the link data
-    linktable = WRDS.WrdsTable(wrdsuser, "crsp", "linktable")
+    linktable = WRDS.WrdsTable(wrdsuser, "crsp_a_ccm", "ccmxpf_lnkhist", [])
     link = WRDS.get_fields(linktable, [:gvkey, :lpermno, :linktype, :linkprim, :linkdt, :linkenddt])
     dropmissing!(link, [:gvkey, :lpermno, :linktype, :linkprim])
     filter!(:linktype => x -> x ∈ linktypes, link)
@@ -22,7 +22,7 @@ function add_permno_from_gvkey!(wrdsuser::WRDS.WrdsUser, data::DataFrame, linkty
     df.permno .= missing
     for linkprim in ["P", "C", "J", "N"]
         dft = df[ismissing.(df.permno), [:gvkey, :datadate]]
-        l = link[link.linkprim .== linkprim, :]
+        l = link[link.linkprim.==linkprim, :]
         dfl = innerjoin(dft, l, on=:gvkey)
         filter!([:datadate, :linkdt, :linkenddt] => (x, y, z) -> x .>= y .&& (ismissing.(z) .|| x .<= z), dfl)
         # Check for duplicates
@@ -52,12 +52,12 @@ function add_permno!(wrdsuser::WRDS.WrdsUser, data::DataFrame, from::Symbol; kwa
 end
 
 function compounded_return(retv::Vector; logreturn=false)
-    logret = sum(log.(1. .+ retv))
-    logreturn ? ret = logret : ret = exp(logret) - 1.
+    logret = sum(log.(1.0 .+ retv))
+    logreturn ? ret = logret : ret = exp(logret) - 1.0
     ret
 end
 
-function compute_dsf(f::Function, var::Symbol, dfvarg::GroupedDataFrame, permno::Integer, date::Date, from::Dates.CompoundPeriod, to::Dates.CompoundPeriod; kwargs...)
+function compute_dsf(f::Function, var::Symbol, dfvarg::GroupedDataFrame, permno, date::Date, from::Dates.CompoundPeriod, to::Dates.CompoundPeriod; kwargs...)
     # Function to compute compounded return for one permno and date
     # dfvarg is expected to be the data for the variable var grouped by permno
     # Returns for the permno
@@ -68,7 +68,7 @@ function compute_dsf(f::Function, var::Symbol, dfvarg::GroupedDataFrame, permno:
     # Only compute if enough available data
     stat = missing
     if minimum(dfp.date) <= startdate && maximum(dfp.date) >= enddate
-        varv = dfp[startdate .<= dfp.date .&& dfp.date .<= enddate, var]
+        varv = dfp[startdate.<=dfp.date.&&dfp.date.<=enddate, var]
         stat = f(varv; kwargs...)
     end
     stat
@@ -80,7 +80,7 @@ function compute_dsf!(f::Function, var::Symbol, wrdsuser::WRDS.WrdsUser, data::D
     String(datecol) ∉ names(data) ? error("Date column $(String(datecol)) not available in the user data.") : nothing
     "permno" ∉ names(data) ? error("Column 'permno' required in the user data.") : nothing
     # Open the return data
-    dsf = WRDS.WrdsTable(wrdsuser, "crsp", "dsf")
+    dsf = WRDS.WrdsTable(wrdsuser, "crsp_a_stock", "dsf", [:permno, :date])
     dfvar = WRDS.get_fields(dsf, [var])
     # Pregroup the return data by permno
     dropmissing!(dfvar)
@@ -90,7 +90,7 @@ function compute_dsf!(f::Function, var::Symbol, wrdsuser::WRDS.WrdsUser, data::D
     df = @view data[.!ismissing.(data.permno), [:permno, datecol, newcol]]
     # Compute the funcion over the returns
     cret(permno, date) = compute_dsf(f, var, dfvarg, permno, date, canonicalize(from), canonicalize(to); kwargs...)
-    transform!(df, [:permno, datecol] => ByRow((x, y) -> cret(x, y)) => newcol) 
+    transform!(df, [:permno, datecol] => ByRow((x, y) -> cret(x, y)) => newcol)
     nothing
 end
 

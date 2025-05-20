@@ -12,13 +12,13 @@ struct Field
     name::Symbol    # Final name of field
 end
 
-Field(field::Union{Symbol, Field}, fn, name) = Field([field], fn, name)
+Field(field::Union{Symbol,Field}, fn, name) = Field([field], fn, name)
 Field(F::Field) = F
 Field(s::Symbol) = Field(s, data -> data[!, s], s)
-Field(p::Pair{Symbol, Symbol}) = Field(first(p), data -> data[!, first(p)], last(p))
-Field(p::Pair{Field, Symbol}) = Field(first(p), data -> data[!, first(p).name], last(p))
-Field(p::Pair{<:Any, <:Function}) = Field(first(p), last(p), nameof(last(p)))
-Field(pf::Pair{<:Any, <:Pair{<:Function, Symbol}}) = Field(first(pf), first(last(pf)), last(last(pf)))
+Field(p::Pair{Symbol,Symbol}) = Field(first(p), data -> data[!, first(p)], last(p))
+Field(p::Pair{Field,Symbol}) = Field(first(p), data -> data[!, first(p).name], last(p))
+Field(p::Pair{<:Any,<:Function}) = Field(first(p), last(p), nameof(last(p)))
+Field(pf::Pair{<:Any,<:Pair{<:Function,Symbol}}) = Field(first(pf), first(last(pf)), last(last(pf)))
 
 function raw_fields(field::Field)
     fields_raw = Symbol[]
@@ -47,12 +47,11 @@ function table_index(frequency::String)
     [index..., format_index...]
 end
 
-
 function compute_field(data::DataFrame, field::Field, index::Vector{Symbol})
     # Get all raw fields
     df = data[!, [index..., raw_fields(field)...]]
     # Compute any non-raw fields
-    for F in field.fields[typeof.(field.fields) .!= Symbol]
+    for F in field.fields[typeof.(field.fields).!=Symbol]
         df[!, F.name] = compute_field(df, F, index)
     end
     # Compute the field
@@ -88,7 +87,7 @@ function get_raw_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; frequen
     tables = WRDS.WrdsTable[]
     # Keep the tables that have data and avoid duplicated fields
     fields_found = Symbol[]
-    fields_for_table = Dict{String, Vector{Symbol}}()
+    fields_for_table = Dict{String,Vector{Symbol}}()
     for t in tables_all
         fields_t = [f for f in t.fields if f in (fields) && f ∉ fields_found]
         append!(fields_found, fields_t)
@@ -129,7 +128,7 @@ function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Field}; frequency="A
     # Transform and rename
     index = table_index(frequency)
     for field in fields
-        # Create the dataframe required by the 
+        # Create the dataframe required by the
         data[!, field.name] .= compute_field(data, field, index)
     end
 
@@ -166,7 +165,7 @@ function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Field}; f
     elseif frequency == "Quarterly"
         error("Get lagged field for quarterly Compustat data yet to be implemented.")
     end
-    key = [:gvkey, format_index...] 
+    key = [:gvkey, format_index...]
     # If duplicate filings for a given lagby date, keep the one with the latest datadate
     dfg = groupby(df, [key..., :_date_])
     transform!(dfg, :datadate => maximum => :datadate_latest)
@@ -180,7 +179,7 @@ function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Field}; f
     df._date_lag_ = df._date_ .+ dlag
     names_lag = [f => Symbol("__$(String(f))__") for f in fields_names]
     dfm = rename(df[!, [key..., fields_names..., :_date_lag_]], names_lag)
-    leftjoin!(df, dfm, on=[key..., :_date_ => :_date_lag_] )
+    leftjoin!(df, dfm, on=[key..., :_date_ => :_date_lag_])
     select!(df, Not([:_date_, :_date_lag_, fields_names...]))
     leftjoin!(data, df, on=table.index)
     rename!(data, [last(f) => first(f) for f in names_lag])
@@ -198,7 +197,7 @@ function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, field::Symbol; kwargs...
     lag!(data, wrdsuser, Field(field); kwargs...)
 end
 
-function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, field::Pair{Symbol, Symbol}; kwargs...)
+function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, field::Pair{Symbol,Symbol}; kwargs...)
     lag!(data, wrdsuser, Field(field); kwargs...)
 end
 
