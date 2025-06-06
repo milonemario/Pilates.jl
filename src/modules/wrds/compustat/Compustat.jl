@@ -122,7 +122,7 @@ function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Field}; frequency="A
             error("Get lagged field for quarterly Compustat data yet to be implemented.")
         end
     end
-
+ 
     data = get_raw_fields(wrdsuser, fields_raw; frequency=frequency)
 
     # Transform and rename
