@@ -83,7 +83,7 @@ function get_raw_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Symbol}; frequen
     end
     push!(tables_index, table_index(frequency))
 
-    tables_all = WRDS.WrdsTable.([wrdsuser], ["comp_na_annual_all"], tables_names, tables_index)
+    tables_all = WRDS.WrdsTable.([wrdsuser], ["comp_na_daily_all"], tables_names, tables_index)
     tables = WRDS.WrdsTable[]
     # Keep the tables that have data and avoid duplicated fields
     fields_found = Symbol[]
@@ -122,7 +122,7 @@ function get_fields(wrdsuser::WRDS.WrdsUser, fields::Vector{Field}; frequency="A
             error("Get lagged field for quarterly Compustat data yet to be implemented.")
         end
     end
- 
+
     data = get_raw_fields(wrdsuser, fields_raw; frequency=frequency)
 
     # Transform and rename
@@ -153,7 +153,7 @@ function lag!(data::DataFrame, wrdsuser::WRDS.WrdsUser, fields::Vector{Field}; f
     fields_names = [f.name for f in fields]
 
     if frequency == "Annual"
-        table = WRDS.WrdsTable(wrdsuser, "comp_na_annual_all", "funda", table_index(frequency))
+        table = WRDS.WrdsTable(wrdsuser, "comp_na_daily_all", "funda", table_index(frequency))
         dlag = Year(lag)
         if "fyear" ∉ names(data)
             error("Field 'fyear' is required to compute lagged variables.")
