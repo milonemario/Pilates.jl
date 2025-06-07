@@ -1,7 +1,7 @@
 name = "Pilates"
 uuid = "c24c5e2f-a713-4bab-b0d1-32f8b5281162"
 authors = ["Mario Milone"]
-version = "0.0.6"
+version = "0.0.7"
 
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
